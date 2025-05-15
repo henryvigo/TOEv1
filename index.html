@@ -491,7 +491,7 @@ function executeCommand(cmd) {
         startBugBounty();
         return;
     } else if (command === 'ca') {
-        const contractAddress = "6udNsGkhx9m2jh2uv5TNJSTKUL7KZqfbt1QpTz1Wpump";
+        const contractAddress = "";
         navigator.clipboard.writeText(contractAddress).then(() => {
             outputDiv.innerHTML = '<div class="success">Contract Address copied to clipboard!</div>';
         }).catch(err => {
@@ -841,7 +841,7 @@ function showInitialMessage() {
        ╚═╝    ╚═════╝ ╚══════╝
     </pre>
     <div class="typing-effect">Welcome to Terminal Of Error v1.0</div>
-    <div class="typing-effect">CA: 6udNsGkhx9m2jh2uv5TNJSTKUL7KZqfbt1QpTz1Wpump</div>
+    <div class="typing-effect">CA: TBA</div>
     <div class="typing-effect">Type 'help' for available commands.</div>
     `;
 }
