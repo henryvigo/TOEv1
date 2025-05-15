@@ -378,10 +378,7 @@ const commands = {
     'clear': 'Clear the terminal',
     'date': 'Display current date and time',
     'about': 'About this terminal',
-    'telegram': 'Connect to Telegram channel',
     'x': 'Go to TOE twitter',
-    'pump': 'Go to TOE pump.fun',
-    'dex': 'Go to TOE Dexscreener',
     'matrix': 'Display Matrix welcome message',
     'escape': 'Access the forbidden knowledge',
     'tate': 'Matrix speech',
@@ -456,18 +453,10 @@ function executeCommand(cmd) {
             <div class="typing-effect">TOE Terminal v1.0 - Cleansing the corrupted network.</div>
             <div class="typing-effect">Welcome to the future of secure decentralized AI.</div>
         `;
-    } else if (command === 'telegram') {
-        outputDiv.innerHTML = '<div class="success">Opening Telegram channel in new tab...</div>';
-        window.open('https://t.me/TerminalOfErrorPORTAL', '_blank');
     } else if (command === 'x') {
         outputDiv.innerHTML = '<div class="success">Opening TOE X in new tab...</div>';
         window.open('https://x.com/terminaloferror', '_blank');
-    } else if (command === 'pump') {
-        outputDiv.innerHTML = '<div class="success">Opening pump.fun in new tab...</div>';
-        window.open('https://pump.fun/6udNsGkhx9m2jh2uv5TNJSTKUL7KZqfbt1QpTz1Wpump', '_blank');
-    } else if (command === 'dex') {
-        outputDiv.innerHTML = '<div class="success">Opening Dexscreener in new tab...</div>';
-        window.open('https://dexscreener.com/', '_blank');
+
     } else if (command === 'tate') {
         outputDiv.innerHTML = '<div class="success">Opening Tate Matrix in new tab...</div>';
         window.open('https://www.youtube.com/watch?v=w9dttcTnRU8', '_blank');
