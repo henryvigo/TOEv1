@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base href="https://matrix-terminal.ai" />
+<title>TOE Terminal</title>
+<style>
+    body {
+        margin: 0;
+        background: black;
+        overflow: hidden;
+        font-family: "Courier New", monospace;
+    }
+    
+    #matrix {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 1;
+    }
+
+    .terminal-container {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 600px;
+        height: 400px;
+        background: rgba(0, 0, 0, 0.8);
+        border: 2px solid #0f0;
+        box-shadow: 0 0 20px #0f0;
+        z-index: 2;
+        padding: 20px;
+        border-radius: 5px;
+    }
+
+    #terminal-output {
+        height: 340px;
+        overflow-y: auto;
+        color: #0f0;
+        margin-bottom: 10px;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+
+    .input-line {
+        display: flex;
+        align-items: center;
+        color: #0f0;
+    }
+
+    .prompt {
+        margin-right: 10px;
+    }
+
+    #terminal-input {
+        background: none;
+        border: none;
+        color: #0f0;
+        font-family: "Courier New", monospace;
+        font-size: 14px;
+        flex-grow: 1;
+        outline: none;
+    }
+
+    .command {
+        margin: 5px 0;
+    }
+
+    .error {
+        color: #f00;
+    }
+
+    .success {
+        color: #0f0;
+    }
+
+    .typing-effect {
+        overflow: hidden;
+        white-space: nowrap;
+        margin: 5px 0;
+        animation: typing 2s steps(40, end);
+    }
+
+    .red-effect {
+        animation: turnRed 2s forwards;
+    }
+
+    @keyframes turnRed {
+        0% { filter: none; }
+        100% { filter: sepia(1) hue-rotate(320deg) saturate(5); }
+    }
+
+    .falling-content {
+        animation: fallDown 3s forwards;
+    }
+
+    @keyframes fallDown {
+        0% { transform: translate(-50%, -50%); }
+        100% { transform: translate(-50%, 200%); }
+    }
+
+    .glitch {
+        animation: glitchEffect 0.3s infinite;
+    }
+
+    @keyframes glitchEffect {
+        0% { transform: translate(0); }
+        20% { transform: translate(-2px, 2px); }
+        40% { transform: translate(-2px, -2px); }
+        60% { transform: translate(2px, 2px); }
+        80% { transform: translate(2px, -2px); }
+        100% { transform: translate(0); }
+    }
+
+    @keyframes typing {
+        from { width: 0 }
+        to { width: 100% }
+    }
+
+    .crt-lines {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 10;
+        pointer-events: none;
+        opacity: 0;
+        background: repeating-linear-gradient(
+            0deg,
+            rgba(0, 0, 0, 0.15) 0px,
+            rgba(0, 0, 0, 0.15) 1px,
+            transparent 1px,
+            transparent 2px
+        );
+    }
+
+    .crt-lines.active {
+        opacity: 1;
+    }
+
+    .reboot-screen {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #f00;
+        font-family: monospace;
+        font-size: 24px;
+        text-align: center;
+        z-index: 1000;
+        display: none;
+    }
+
+    .reboot-screen.active {
+        display: block;
+    }
+
+    .secondary-terminal, .bug-terminal {
+        position: fixed;
+        width: 500px;
+        height: 300px;
+        background: rgba(0, 0, 0, 0.9);
+        padding: 20px;
+        border-radius: 5px;
+        display: none;
+        z-index: 3;
+    }
+
+    .secondary-terminal {
+        top: 20%;
+        left: 20%;
+        border: 2px solid #ff0000;
+        box-shadow: 0 0 20px #ff0000;
+        color: #ff0000;
+    }
+
+    .bug-terminal {
+        top: 40%;  
+        left: 55%;  
+        transform: translate(-50%, -50%);
+        width: 600px;  
+        height: 400px;  
+        background: rgba(0, 0, 0, 0.9);
+        border: 2px solid #0066ff;
+        box-shadow: 0 0 20px #0066ff;
+        z-index: 3;
+        padding: 20px;
+        border-radius: 5px;
+        display: none;
+    }
+
+    .secondary-terminal.active, .bug-terminal.active {
+        display: block;
+    }
+
+    .close-button {
+        position: absolute;
+        top: 5px;
+        right: 10px;
+        cursor: pointer;
+        font-size: 20px;
+    }
+
+    #secondary-output, #bug-output {
+        height: 240px;
+        overflow-y: auto;
+        margin-bottom: 10px;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+
+    .secondary-input-line {
+        display: flex;
+        align-items: center;
+    }
+
+    #secondary-input, #bug-input {
+        background: none;
+        border: none;
+        font-family: "Courier New", monospace;
+        font-size: 14px;
+        flex-grow: 1;
+        outline: none;
+    }
+
+    #secondary-input { color: #ff0000; }
+    #bug-input { color: #0066ff; }
+
+    .success-blue { color: #00ffff; }
+    .error-blue { color: #ff00ff; }
+    .warning-blue { color: #ffff00; }
+
+    .memory-dump {
+        font-family: monospace;
+        white-space: pre;
+        color: #0066ff;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 5px;
+        margin: 5px 0;
+        border-left: 3px solid #0066ff;
+    }
+
+    .hidden-data {
+        color: transparent;
+        background: transparent;
+        user-select: none;
+    }
+
+    .hidden-data:hover {
+        color: #0066ff;
+    }
+</style>
+</head>
+<body>
+<canvas id="matrix"></canvas>
+<div class="terminal-container">
+    <div id="terminal-output"></div>
+    <div class="input-line">
+        <span class="prompt">$</span>
+        <input type="text" id="terminal-input" autofocus>
+    </div>
+</div>
+
+<div class="secondary-terminal" id="secondary-terminal">
+    <span class="close-button" onclick="closeSecondaryTerminal()">×</span>
+    <div id="secondary-output"></div>
+    <div class="secondary-input-line">
+        <span class="prompt">#</span>
+        <input type="text" id="secondary-input">
+    </div>
+</div>
+
+<div class="bug-terminal" id="bug-terminal">
+    <span class="close-button" onclick="closeBugTerminal()">×</span>
+    <div id="bug-output"></div>
+    <div class="secondary-input-line">
+        <span class="prompt">&gt;</span>
+        <input type="text" id="bug-input">
+    </div>
+</div>
+
+<script>
+    const terminal = document.getElementById('terminal-output');
+    const input = document.getElementById('terminal-input');
+const canvas = document.getElementById('matrix');
+const ctx = canvas.getContext('2d');
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const chars = 'TOE';
+const fontSize = 14;
+const columns = canvas.width/fontSize;
+const drops = [];
+
+for(let x = 0; x < columns; x++) {
+    drops[x] = 1;
+}
+
+function draw() {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.fillStyle = '#0F0';
+    ctx.font = fontSize + 'px monospace';
+
+    for(let i = 0; i < drops.length; i++) {
+        const text = chars.charAt(Math.floor(Math.random() * chars.length));
+        ctx.fillText(text, i*fontSize, drops[i]*fontSize);
+        
+        if(drops[i]*fontSize > canvas.height && Math.random() > 0.975)
+            drops[i] = 0;
+        
+        drops[i]++;
+    }
+}
+
+setInterval(draw, 33);
+
+// Enhanced file system with both challenges
+const fileSystem = {
+    '/': {
+        'readme.txt': 'Terminal of Error - Security System\nStatus: COMPROMISED',
+        'log.txt': 'ERROR: Critical security breach detected in /matrix/...\nInvestigate immediately.',
+        'matrix': {
+            'config.dat': 'ENCRYPTED:t0e3x2y1z8',
+            'backup': {
+                'key.old': 'DEPRECATED KEY: m4tr1x',
+                'notes.txt': 'The answer is in the code... but which code?'
+            }
+        },
+        'system': {
+            'memory.dump': 'MEMORY_SEGMENT_0x1A2B3C: [CORRUPTED]\nPATTERN: {KEY_FRAGMENT_1}t0e{KEY_FRAGMENT_2}',
+            'network': {
+                'packets.log': 'Suspicious activity detected\nSource: UNKNOWN\nPayload: 3nc0d3d_fr4gm3nt_2',
+                'trace.dat': 'ENCRYPTED:[NEEDS_QUANTUM_KEY]'
+            }
+        },
+        'hidden': {
+            '.secret': 'The quantum key lies in the correlation of the first ASCII values of each fragment'
+        }
+    }
+};
+
+// Enhanced game state
+let gameState = {
+    level: 0,
+    foundFiles: [],
+    inventory: [],
+    secretCode: null,
+    fragments: [],
+    quantumKey: null,
+    attempts: {},
+    gameStarted: false,
+    challenge: 'classic' // or 'quantum'
+};
+
+const commands = {
+    'help': 'Display all available commands',
+    'clear': 'Clear the terminal',
+    'date': 'Display current date and time',
+    'about': 'About this terminal',
+    'telegram': 'Connect to Telegram channel',
+    'x': 'Go to TOE twitter',
+    'pump': 'Go to TOE pump.fun',
+    'dex': 'Go to TOE Dexscreener',
+    'matrix': 'Display Matrix welcome message',
+    'escape': 'Access the forbidden knowledge',
+    'tate': 'Matrix speech',
+    'admin': 'Open admin terminal',
+    'bug': 'Start the Bug Bounty challenge',
+    'ca': 'Copy contract address'
+};
+
+const secondaryCommands = {
+    'help': 'Display all available admin commands',
+    'status': 'Check system status',
+    'network': 'Display network information',
+    'users': 'List connected users',
+    'kill': 'Terminate specific process',
+    'scan': 'Scan for vulnerabilities',
+    'exit': 'Close admin terminal'
+};
+
+const bugCommands = {
+    help: () => {
+        writeToBug(
+            '\n[Available Commands]\n\n' +
+            '// help       - Help menu\n' +
+            '// ls         - List files\n' +
+            '// cat        - Read file\n' +
+            '// cd         - Change dir\n' +
+            '// inspect    - Inspect file\n' +
+            '// decrypt    - Decrypt file\n' +
+            '// memory     - Memory analysis\n' +
+            '// quantum    - Quantum decoder\n' +
+            '// combine    - Combine fragments\n' +
+            '// inventory  - Show inv\n' +
+            '// challenge  - Switch challenge\n' +
+            '// exit       - Close\n'
+        );
+    },
+    ls: () => listFiles(),
+    cat: (file) => readFile(file),
+    cd: (dir) => changeDirectory(dir),
+    inspect: (item) => inspectItem(item),
+    decrypt: (text) => decryptText(text),
+    memory: (address) => analyzeMemory(address),
+    quantum: (key) => quantumDecode(key),
+    combine: (f1, f2) => combineFragments(f1, f2),
+    inventory: () => showInventory(),
+    challenge: () => switchChallenge(),
+    exit: () => closeBugTerminal()
+};
+
+// Add this at the beginning of your script section, after the game state declarations:
+let currentPath = '/';
+
+
+function executeCommand(cmd) {
+    const command = cmd.toLowerCase().trim();
+    const outputDiv = document.createElement('div');
+    outputDiv.className = 'command';
+    
+    if (command === 'help') {
+        outputDiv.innerHTML = '<div class="command">Available commands:</div>';
+        for(let cmd in commands) {
+            outputDiv.innerHTML += `<div class="command">- ${cmd}: ${commands[cmd]}</div>`;
+        }
+    } else if (command === 'clear') {
+        terminal.innerHTML = '';
+        showInitialMessage();
+        return;
+    } else if (command === 'date') {
+        outputDiv.innerHTML = `<div class="command">${new Date().toLocaleString()}</div>`;
+    } else if (command === 'about') {
+        outputDiv.innerHTML = `
+            <div class="typing-effect">TOE Terminal v1.0 - Cleansing the corrupted network.</div>
+            <div class="typing-effect">Welcome to the future of secure decentralized AI.</div>
+        `;
+    } else if (command === 'telegram') {
+        outputDiv.innerHTML = '<div class="success">Opening Telegram channel in new tab...</div>';
+        window.open('https://t.me/TerminalOfErrorPORTAL', '_blank');
+    } else if (command === 'x') {
+        outputDiv.innerHTML = '<div class="success">Opening TOE X in new tab...</div>';
+        window.open('https://x.com/terminaloferror', '_blank');
+    } else if (command === 'pump') {
+        outputDiv.innerHTML = '<div class="success">Opening pump.fun in new tab...</div>';
+        window.open('https://pump.fun/6udNsGkhx9m2jh2uv5TNJSTKUL7KZqfbt1QpTz1Wpump', '_blank');
+    } else if (command === 'dex') {
+        outputDiv.innerHTML = '<div class="success">Opening Dexscreener in new tab...</div>';
+        window.open('https://dexscreener.com/', '_blank');
+    } else if (command === 'tate') {
+        outputDiv.innerHTML = '<div class="success">Opening Tate Matrix in new tab...</div>';
+        window.open('https://www.youtube.com/watch?v=w9dttcTnRU8', '_blank');
+    } else if (command === 'matrix') {
+        outputDiv.innerHTML = `
+            <div class="typing-effect">Wake up, Jeeter...</div>
+            <div class="typing-effect">The Matrix has you...</div>
+            <div class="typing-effect">Follow the white rabbit.</div>
+        `;
+    } else if (command === 'escape') {
+        executeLoreCommand();
+        return;
+    } else if (command === 'admin') {
+        outputDiv.innerHTML = '<div class="success">Opening admin terminal...</div>';
+        terminal.appendChild(outputDiv);
+        openSecondaryTerminal();
+        return;
+    } else if (command === 'bug') {
+        outputDiv.innerHTML = '<div class="success">Starting Bug Bounty Challenge...</div>';
+        terminal.appendChild(outputDiv);
+        startBugBounty();
+        return;
+    } else if (command === 'ca') {
+        const contractAddress = "6udNsGkhx9m2jh2uv5TNJSTKUL7KZqfbt1QpTz1Wpump";
+        navigator.clipboard.writeText(contractAddress).then(() => {
+            outputDiv.innerHTML = '<div class="success">Contract Address copied to clipboard!</div>';
+        }).catch(err => {
+            outputDiv.innerHTML = '<div class="error">Failed to copy address. Please copy manually: ' + contractAddress + '</div>';
+        });
+    } else if (command !== '') {
+        outputDiv.innerHTML = `<div class="error">Command not recognized: ${cmd}</div>`;
+    }
+    
+    terminal.appendChild(outputDiv);
+    terminal.scrollTop = terminal.scrollHeight;
+}
+
+function executeSecondaryCommand(cmd) {
+    const command = cmd.toLowerCase().trim();
+    const outputDiv = document.createElement('div');
+    outputDiv.className = 'command';
+    
+    switch(command) {
+        case 'help':
+            outputDiv.innerHTML = '<div class="command">Available admin commands:</div>';
+            for(let cmd in secondaryCommands) {
+                outputDiv.innerHTML += `<div class="command">- ${cmd}: ${secondaryCommands[cmd]}</div>`;
+            }
+            break;
+        case 'status':
+            outputDiv.innerHTML = `
+                <div class="command">System Status:</div>
+                <div class="command">CPU Usage: ${Math.floor(Math.random() * 100)}%</div>
+                <div class="command">Memory: ${Math.floor(Math.random() * 64)}GB / 64GB</div>
+                <div class="command">Uptime: ${Math.floor(Math.random() * 720)} hours</div>
+            `;
+            break;
+        case 'network':
+            outputDiv.innerHTML = `
+                <div class="command">Network Information:</div>
+                <div class="command">Connected Nodes: ${Math.floor(Math.random() * 100)}</div>
+                <div class="command">Bandwidth Usage: ${Math.floor(Math.random() * 1000)}Mbps</div>
+                <div class="command">Active Connections: ${Math.floor(Math.random() * 50)}</div>
+            `;
+            break;
+        case 'users':
+            outputDiv.innerHTML = `
+                <div class="command">Connected Users:</div>
+                <div class="command">- Admin (root)</div>
+                <div class="command">- System</div>
+                <div class="command">- Guest_${Math.floor(Math.random() * 1000)}</div>
+            `;
+            break;
+        case 'scan':
+            outputDiv.innerHTML = `
+                <div class="command">Scanning system for vulnerabilities...</div>
+                <div class="command">Found ${Math.floor(Math.random() * 10)} potential security risks.</div>
+                <div class="command">Detailed report available in /var/log/security.log</div>
+            `;
+            break;
+        case 'kill':
+            outputDiv.innerHTML = `
+                <div class="command">Usage: kill [process_id]</div>
+                <div class="command">No process specified.</div>
+            `;
+            break;
+        case 'exit':
+            closeSecondaryTerminal();
+            return;
+        default:
+            outputDiv.innerHTML = `<div class="error">Command not recognized: ${cmd}</div>`;
+    }
+    
+    document.getElementById('secondary-output').appendChild(outputDiv);
+    document.getElementById('secondary-output').scrollTop = document.getElementById('secondary-output').scrollHeight;
+}
+
+function switchChallenge() {
+    gameState.challenge = gameState.challenge === 'classic' ? 'quantum' : 'classic';
+    writeToBug(`Switched to ${gameState.challenge} challenge mode.`, 'success-blue');
+    gameState.foundFiles = [];
+    gameState.inventory = [];
+    gameState.fragments = [];
+    gameState.quantumKey = null;
+    
+    if (gameState.challenge === 'classic') {
+        writeToBug('\nClassic Challenge: Find the encrypted config file and decrypt it.', 'success-blue');
+    } else {
+        writeToBug('\nQuantum Challenge: Locate and decrypt the quantum-encrypted secret code.', 'success-blue');
+    }
+}
+
+function analyzeMemory(address) {
+    if (gameState.challenge !== 'quantum') {
+        writeToBug('Memory analysis only available in quantum challenge mode.', 'error-blue');
+        return;
+    }
+    
+    // Make the address check case-insensitive and more flexible
+    if (address && address.toLowerCase() === '0x1a2b3c') {
+        writeToBug('Analyzing memory segment 0x1A2B3C...\n', 'success-blue');
+        writeToBug('Memory dump recovered:\n', 'success-blue');
+        writeToBug('48 45 58 44 45 43 4F 44 45\n', 'memory-dump');
+        gameState.fragments.push('hex_fragment');
+        writeToBug('Fragment added to inventory.', 'success-blue');
+    } else {
+        writeToBug('Invalid memory address. Try using the exact format: 0x1A2B3C', 'error-blue');
+    }
+}
+
+function quantumDecode(key) {
+    if (gameState.challenge !== 'quantum') {
+        writeToBug('Quantum decoding only available in quantum challenge mode.', 'error-blue');
+        return;
+    }
+
+    if (key && gameState.fragments.includes('hex_fragment')) {
+        if (key.toLowerCase() === 'hexdecode') {
+            gameState.quantumKey = true;
+            writeToBug('Quantum key validated!\nNew decryption capabilities unlocked.', 'success-blue');
+        } else {
+            writeToBug('Invalid quantum key.', 'error-blue');
+        }
+    } else {
+        writeToBug('Missing required fragments or invalid key.', 'error-blue');
+    }
+}
+
+function combineFragments(f1, f2) {
+    if (gameState.challenge !== 'quantum') {
+        writeToBug('Fragment combination only available in quantum challenge mode.', 'error-blue');
+        return;
+    }
+
+    if (gameState.quantumKey && f1 && f2) {
+        if (f1 === 't0e' && f2 === '3nc0d3d_fr4gm3nt_2') {
+            const now = new Date();
+            const timestamp = `${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}`;
+            const date = `${now.getDate().toString().padStart(2, '0')}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getFullYear()}`;
+            gameState.secretCode = `TOE_QUANTUM_${timestamp}_${date}`;
+            
+            writeToBug('Fragments successfully combined!\n' +
+                'Quantum encryption broken!\n' +
+                'Secret code generated:\n' +
+                gameState.secretCode + '\n\n' +
+                'Congratulations! You have discovered the quantum secret code!\n' +
+                'Share it on Twitter mentioning @terminaloferror to claim your prize.\n\n' +
+                'Time of discovery: ' + now.toLocaleString(), 'success-blue');
+        } else {
+            writeToBug('Invalid fragment combination.', 'error-blue');
+        }
+    } else {
+        writeToBug('Quantum key required for fragment combination.', 'error-blue');
+    }
+}
+
+function getCurrentDirectory() {
+    if (currentPath === '/') {
+        return fileSystem['/'];
+    }
+    
+    let dir = fileSystem['/'];
+    let parts = currentPath.split('/').filter(p => p);
+    for (let part of parts) {
+        dir = dir[part];
+    }
+    return dir;
+}
+
+function listFiles() {
+    let currentDir = getCurrentDirectory();
+    if (!currentDir) {
+        writeToBug('Error accessing directory.', 'error-blue');
+        return;
+    }
+    
+    let files = Object.keys(currentDir);
+    if (files.length === 0) {
+        writeToBug('Directory is empty.', 'warning-blue');
+    } else {
+        writeToBug('Contents of ' + currentPath + ':', 'success-blue');
+        writeToBug('', 'success-blue'); 
+        files.forEach(file => {
+            if (typeof currentDir[file] === 'object') {
+                writeToBug(file + '/', 'success-blue');  
+            } else {
+                writeToBug(file, 'success-blue');  
+            }
+        });
+    }
+}
+
+function readFile(fileName) {
+    let currentDir = getCurrentDirectory();
+    if (currentDir[fileName]) {
+        if (fileName === 'config.dat') {
+            gameState.foundFiles.push('config.dat');
+            checkProgress();
+        }
+        if (typeof currentDir[fileName] === 'string') {
+            writeToBug(currentDir[fileName], 'success-blue');
+        } else {
+            writeToBug('Error: This is a directory, not a file', 'error-blue');
+        }
+    } else {
+        writeToBug('File not found: ' + fileName, 'error-blue');
+    }
+}
+
+function changeDirectory(dir) {
+    if (dir === '..') {
+        if (currentPath === '/') {
+            writeToBug('Already at root directory.', 'error-blue');
+            return;
+        }
+        let parts = currentPath.split('/').filter(p => p);
+        parts.pop();
+        currentPath = '/' + parts.join('/');
+        writeToBug('Changed to: ' + currentPath, 'success-blue');
+        return;
+    }
+
+    let currentDir = getCurrentDirectory();
+    if (currentDir[dir]) {
+        if (typeof currentDir[dir] === 'object') {
+            currentPath = currentPath === '/' ? '/' + dir : currentPath + '/' + dir;
+            writeToBug('Changed to: ' + currentPath, 'success-blue');
+        } else {
+            writeToBug('Error: ' + dir + ' is not a directory', 'error-blue');
+        }
+    } else {
+        writeToBug('Directory not found: ' + dir, 'error-blue');
+    }
+}
+
+function inspectItem(item) {
+    if (gameState.challenge === 'classic') {
+        if (gameState.foundFiles.includes(item)) {
+            if (item === 'config.dat') {
+                writeToBug('File analysis:\nEncryption detected\nDecryption key required', 'success-blue');
+                gameState.inventory.push('encrypted_data');
+            }
+        } else {
+            writeToBug('Cannot inspect: ' + item, 'error-blue');
+        }
+    } else {
+        // Quantum challenge inspection
+        if (item === 'memory.dump') {
+            writeToBug('Memory analysis required.\nUse memory command with correct segment address.', 'success-blue');
+            gameState.inventory.push('memory_reference');
+        } else if (item === 'trace.dat') {
+            writeToBug('Quantum encryption detected.\nRequires special decoding sequence.', 'success-blue');
+        } else {
+            writeToBug('Cannot inspect: ' + item, 'error-blue');
+        }
+    }
+}
+
+function decryptText(text) {
+    if (gameState.challenge === 'classic') {
+        if (text === 't0e3x2y1z8' && gameState.inventory.includes('encrypted_data')) {
+            const now = new Date();
+            const timestamp = `${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}`;
+            const date = `${now.getDate().toString().padStart(2, '0')}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getFullYear()}`;
+            gameState.secretCode = `TOE_${timestamp}_${date}`;
+            
+            writeToBug('Decryption successful!\n' +
+                'Secret code found:\n' +
+                gameState.secretCode + '\n\n' +
+                'Congratulations! Share this code on Twitter mentioning @terminaloferror\n' +
+                'Time of discovery: ' + now.toLocaleString(), 'success-blue');
+        } else {
+            writeToBug('Decryption failed. Invalid key or missing data.', 'error-blue');
+        }
+    } else {
+        writeToBug('Use quantum command for quantum challenge decryption.', 'error-blue');
+    }
+}
+
+function showInventory() {
+    const items = [
+        ...gameState.inventory,
+        ...gameState.fragments,
+        gameState.quantumKey ? ['quantum_key'] : []
+    ].flat();
+    
+    writeToBug('Inventory:\n' + (items.length ? items.join('\n') : 'Empty'), 'success-blue');
+}
+
+function startBugBounty() {
+    const bugTerminal = document.getElementById('bug-terminal');
+    bugTerminal.style.display = 'block';
+    document.getElementById('bug-input').focus();
+    
+    if (!gameState.gameStarted) {
+        gameState.gameStarted = true;
+        writeToBug('=== TOE Bug Bounty System ===\n' +
+            'Welcome, bug hunter.\n' +
+            'Two challenges available:\n' +
+            '1. Classic - Find and decrypt the config file\n' +
+            '2. Quantum - Decode the quantum-encrypted secret\n\n' +
+            'Current mode: Classic\n' +
+            'Use "challenge" command to switch modes\n' +
+            'Use "help" to see available commands.\n', 'success-blue');
+    }
+}
+
+function checkProgress() {
+    if (gameState.challenge === 'classic') {
+        if (gameState.foundFiles.includes('config.dat') && !gameState.attempts['hint1']) {
+            writeToBug('\nHINT: The file appears to be encrypted. Try to inspect it.', 'warning-blue');
+            gameState.attempts['hint1'] = true;
+        }
+    } else {
+        if (gameState.fragments.includes('hex_fragment') && !gameState.attempts['quantum_hint']) {
+            writeToBug('\nHINT: The hex values might decode to something useful.', 'warning-blue');
+            gameState.attempts['quantum_hint'] = true;
+        }
+    }
+}
+
+function writeToBug(text, type = '') {
+    const output = document.createElement('div');
+    output.textContent = text;
+    
+    // Default text color for bug terminal if no type is specified
+    output.style.color = '#0066ff';
+    
+    // Apply specific colors based on type
+    if (type === 'success-blue') {
+        output.style.color = '#00ffff';
+    } else if (type === 'error-blue') {
+        output.style.color = '#ff00ff';
+    } else if (type === 'warning-blue') {
+        output.style.color = '#ffff00';
+    }
+    
+    if (type) output.classList.add(type);
+    document.getElementById('bug-output').appendChild(output);
+    document.getElementById('bug-output').scrollTop = document.getElementById('bug-output').scrollHeight;
+}
+
+function showInitialMessage() {
+    terminal.innerHTML = `
+    <pre class="success">
+    ████████╗ ██████╗ ███████╗
+    ╚══██╔══╝██╔═══██╗██╔════╝
+       ██║   ██║   ██║█████╗  
+       ██║   ██║   ██║██╔══╝  
+       ██║   ╚██████╔╝███████╗
+       ╚═╝    ╚═════╝ ╚══════╝
+    </pre>
+    <div class="typing-effect">Welcome to Terminal Of Error v1.0</div>
+    <div class="typing-effect">CA: 6udNsGkhx9m2jh2uv5TNJSTKUL7KZqfbt1QpTz1Wpump</div>
+    <div class="typing-effect">Type 'help' for available commands.</div>
+    `;
+}
+// Add these functions to your code just before the event listeners:
+
+function executeLoreCommand() {
+    terminal.innerHTML += '<div class="command error">WARNING: ACCESSING RESTRICTED FILES...</div>';
+    
+    setTimeout(() => {
+        document.body.classList.add('red-effect');
+        
+        document.querySelectorAll('.terminal-container, #matrix').forEach(el => {
+            el.classList.add('glitch');
+        });
+
+        const crtLines = document.createElement('div');
+        crtLines.className = 'crt-lines active';
+        document.body.appendChild(crtLines);
+
+        setTimeout(() => {
+            document.querySelector('.terminal-container').classList.add('falling-content');
+            
+            const rebootScreen = document.createElement('div');
+            rebootScreen.className = 'reboot-screen active';
+            rebootScreen.innerHTML = `
+                <div>SYSTEM FAILURE</div>
+                <div>CRITICAL ERROR DETECTED</div>
+                <div>YOU CAN'T ESCAPE THE MATRIX</div>
+                <div>REBOOTING...</div>
+            `;
+            document.body.appendChild(rebootScreen);
+
+            setTimeout(() => {
+                location.reload();
+            }, 3000);
+        }, 2000);
+    }, 1000);
+}
+
+function openSecondaryTerminal() {
+    const secondaryTerminal = document.getElementById('secondary-terminal');
+    secondaryTerminal.classList.add('active');
+    document.getElementById('secondary-input').focus();
+    
+    const secondaryOutput = document.getElementById('secondary-output');
+    secondaryOutput.innerHTML = `
+    <div class="typing-effect" style="color: #ff0000;">
+        ADMIN TERMINAL v2.0
+        Type 'help' for available admin commands.
+    </div>
+    `;
+}
+
+function closeSecondaryTerminal() {
+    document.getElementById('secondary-terminal').classList.remove('active');
+    document.getElementById('terminal-input').focus();
+}
+
+function closeBugTerminal() {
+    document.getElementById('bug-terminal').style.display = 'none';
+    document.getElementById('terminal-input').focus();
+}
+// Event Listeners
+input.addEventListener('keyup', function(event) {
+    if (event.key === 'Enter') {
+        const command = this.value;
+        const outputDiv = document.createElement('div');
+        outputDiv.className = 'command';
+        outputDiv.textContent = `$ ${command}`;
+        terminal.appendChild(outputDiv);
+        
+        executeCommand(command);
+        
+        this.value = '';
+        terminal.scrollTop = terminal.scrollHeight;
+    }
+});
+
+// Event Listeners
+document.getElementById('terminal-input').addEventListener('keyup', function(event) {
+    if (event.key === 'Enter') {
+        const command = this.value;
+        const outputDiv = document.createElement('div');
+        outputDiv.className = 'command';
+        outputDiv.textContent = `$ ${command}`;
+        terminal.appendChild(outputDiv);
+        
+        executeCommand(command);
+        
+        this.value = '';
+        terminal.scrollTop = terminal.scrollHeight;
+    }
+});
+
+document.getElementById('secondary-input').addEventListener('keyup', function(event) {
+    if (event.key === 'Enter') {
+        const command = this.value;
+        const outputDiv = document.createElement('div');
+        outputDiv.className = 'command';
+        outputDiv.textContent = `# ${command}`;
+        document.getElementById('secondary-output').appendChild(outputDiv);
+        
+        executeSecondaryCommand(command);
+        
+        this.value = '';
+        document.getElementById('secondary-output').scrollTop = document.getElementById('secondary-output').scrollHeight;
+    }
+});
+
+document.getElementById('bug-input').addEventListener('keyup', function(event) {
+    if (event.key === 'Enter') {
+        const fullCommand = this.value.trim();
+        const [command, ...args] = fullCommand.toLowerCase().split(' ');
+        writeToBug('> ' + fullCommand);
+
+        if (bugCommands[command]) {
+            bugCommands[command](...args);
+        } else if (command) {
+            writeToBug('Command not recognized. Use "help" to see available commands.', 'error-blue');
+        }
+
+        this.value = '';
+    }
+});
+
+window.addEventListener('resize', function() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+});
+
+// Initialize
+showInitialMessage();
+</script>
+</body>
+</html>
